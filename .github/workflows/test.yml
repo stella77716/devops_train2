@@ -1,0 +1,19 @@
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+
+  steps:
+  - name: Checkout code
+    uses: actions/checkout@v6
+  - name: Install test environnement
+    uses: actions/setup-
