@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dashboard supervision</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#f3f5f8;--panel:#fff;--ink:#16202e;--mute:#5d6b7d;--line:#dde3ea;--ok:#2f9e5b;--info:#3d7fd6;--warn:#d9a400;--avg:#e9822b;--high:#d94c3d;--dis:#a3122a;color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1620;--panel:#182231;--ink:#e6ecf4;--mute:#8d9bb0;--line:#26344a;--ok:#46c07a;--info:#5b9cf0;--warn:#e8b923;--avg:#f0954a;--high:#f06a5a;--dis:#e0405a;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0f1620;--panel:#182231;--ink:#e6ecf4;--mute:#8d9bb0;--line:#26344a;--ok:#46c07a;--info:#5b9cf0;--warn:#e8b923;--avg:#f0954a;--high:#f06a5a;--dis:#e0405a;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{background:var(--bg);color:var(--ink);font:15px/1.45 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif}
+main{max-width:1100px;margin:0 auto;padding:20px 16px 40px}
+header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:16px}
+h1{font-size:22px;margin:0;font-weight:650}
+.sub{color:var(--mute);font-size:13px}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(12,1fr)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px 16px;min-width:0}
+.panel h2{font-size:14px;margin:0 0 12px;font-weight:650}
+.c12{grid-column:span 12}.c8{grid-column:span 8}.c4{grid-column:span 4}.c6{grid-column:span 6}
+@media(max-width:780px){.c8,.c4,.c6{grid-column:span 12}}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+@media(max-width:780px){.kpis{grid-template-columns:repeat(2,1fr)}}
+.kpi .v{font-size:30px;font-weight:700;line-height:1.1}
+.kpi .l{color:var(--mute);font-size:13px}
+.hosts{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px}
+.h{border-radius:4px;padding:8px 10px;color:#fff;font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.h small{display:block;font-weight:400;opacity:.9}
+.s-ok{background:var(--ok)}.s-warn{background:var(--warn);color:#1b1500}.s-avg{background:var(--avg)}.s-high{background:var(--high)}.s-dis{background:var(--dis)}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--mute);font-weight:600}
+.tag{display:inline-block;padding:1px 8px;border-radius:3px;color:#fff;font-size:12px;font-weight:600}
+.bar{display:grid;grid-template-columns:90px 1fr 44px;gap:10px;align-items:center;margin:9px 0;font-size:13px}
+.track{height:10px;background:var(--line);border-radius:5px;overflow:hidden}
+.fill{height:100%;border-radius:5px}
+svg{width:100%;height:auto;display:block}
+.leg{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--mute);margin-top:6px}
+.leg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px}
+button{font:inherit;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:5px 12px;cursor:pointer}
+button:focus-visible{outline:2px solid var(--info);outline-offset:2px}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <div><h1>Vue d’ensemble de l’infrastructure</h1>
+  <div class="sub" id="maj">Données de démonstration</div></div>
+  <button id="theme" type="button">Thème clair / sombre</button>
+</header>
+
+<div class="grid">
+  <div class="c12 kpis">
+    <div class="panel kpi"><div class="v" id="k1"></div><div class="l">Hôtes disponibles</div></div>
+    <div class="panel kpi"><div class="v" id="k2"></div><div class="l">Problèmes actifs</div></div>
+    <div class="panel kpi"><div class="v" id="k3"></div><div class="l">CPU moyen</div></div>
+    <div class="panel kpi"><div class="v" id="k4"></div><div class="l">Disponibilité sur 30 jours</div></div>
+  </div>
+
+  <section class="panel c12"><h2>État des hôtes</h2><div class="hosts" id="hosts"></div></section>
+
+  <section class="panel c8"><h2>Charge CPU, dernières 24 h</h2>
+    <svg viewBox="0 0 640 220" id="chart" role="img" aria-label="Courbes de charge CPU des trois serveurs principaux"></svg>
+    <div class="leg" id="leg"></div>
+  </section>
+
+  <section class="panel c4"><h2>Utilisation disque</h2><div id="disks"></div></section>
+
+  <section class="panel c12"><h2>Problèmes en cours</h2>
+    <div class="scroll"><table><thead><tr><th>Sévérité</th><th>Hôte</th><th>Problème</th><th>Depuis</th></tr></thead><tbody id="probs"></tbody></table></div>
+  </section>
+</div>
+</main>
+
+<script>
+// --- Configuration Zabbix (laisser vide = mode démonstration) ---
+// En local (fichier ouvert dans le navigateur), renseignez l’URL de l’API et un jeton :
+const ZABBIX = { url: "", token: "" }; // ex. "http://mon-zabbix/api_jsonrpc.php"
+
+const SEV = { 5:["Désastre","dis"], 4:["Haute","high"], 3:["Moyenne","avg"], 2:["Avertissement","warn"], 1:["Info","info"] };
+
+// Données de démonstration
+const demo = {
+  hosts: [
+    ["web-01","ok","12 %"],["web-02","ok","18 %"],["db-01","avg","86 %"],["db-02","ok","31 %"],
+    ["app-01","ok","24 %"],["app-02","warn","72 %"],["proxy-01","ok","9 %"],["mail-01","ok","15 %"],
+    ["nas-01","high","Disque 94 %"],["fw-01","ok","6 %"],["sw-core","ok","4 %"],["vpn-01","dis","Injoignable"]
+  ],
+  disks: [["web-01",42],["db-01",78],["app-01",55],["mail-01",63],["nas-01",94]],
+  problems: [
+    [5,"vpn-01","Hôte injoignable (ICMP ping)","12 min"],
+    [4,"nas-01","Espace disque / inférieur à 10 %","2 h 05"],
+    [3,"db-01","CPU élevé (> 85 % pendant 5 min)","34 min"],
+    [2,"app-02","Mémoire disponible faible","1 h 18"],
+    [1,"web-02","Service nginx redémarré","3 h 40"]
+  ]
+};
+
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+
+function render(d){
+  const up = d.hosts.filter(h=>h[1]!=="dis").length;
+  k1.textContent = up + " / " + d.hosts.length;
+  k2.textContent = d.problems.length;
+  k3.textContent = "34 %";
+  k4.textContent = "99,82 %";
+  hosts.innerHTML = d.hosts.map(h=>`<div class="h s-${h[1]}" title="${esc(h[0])}">${esc(h[0])}<small>${esc(h[2])}</small></div>`).join("");
+  disks.innerHTML = d.disks.map(x=>{
+    const c = x[1]>=90?"var(--high)":x[1]>=75?"var(--avg)":"var(--ok)";
+    return `<div class="bar"><span>${esc(x[0])}</span><div class="track"><div class="fill" style="width:${x[1]}%;background:${c}"></div></div><span>${x[1]} %</span></div>`;
+  }).join("");
+  probs.innerHTML = d.problems.map(p=>{
+    const s = SEV[p[0]];
+    return `<tr><td><span class="tag s-${s[1]}">${s[0]}</span></td><td>${esc(p[1])}</td><td>${esc(p[2])}</td><td>${esc(p[3])}</td></tr>`;
+  }).join("");
+}
+
+function chart(){
+  const series = [["web-01","var(--info)",20,10],["db-01","var(--avg)",60,25],["app-01","var(--ok)",35,12]];
+  const W=640,H=220,L=34,B=22,T=8;
+  let svg = "";
+  [0,25,50,75,100].forEach(v=>{
+    const y = T + (H-T-B)*(1-v/100);
+    svg += `<line x1="${L}" x2="${W}" y1="${y}" y2="${y}" stroke="var(--line)"/><text x="0" y="${y+4}" font-size="11" fill="var(--mute)">${v}%</text>`;
+  });
+  ["00h","06h","12h","18h","24h"].forEach((t,i)=>{
+    svg += `<text x="${L+(W-L)*i/4-10}" y="${H-5}" font-size="11" fill="var(--mute)">${t}</text>`;
+  });
+  series.forEach((s,k)=>{
+    let pts=[];
+    for(let i=0;i<=48;i++){
+      const v = Math.max(3,Math.min(98, s[2] + s[3]*Math.sin(i/5+k*2) + 6*Math.sin(i*1.7+k)));
+      pts.push((L+(W-L)*i/48).toFixed(1)+","+(T+(H-T-B)*(1-v/100)).toFixed(1));
+    }
+    svg += `<polyline fill="none" stroke="${s[1]}" stroke-width="2" points="${pts.join(" ")}"/>`;
+  });
+  document.getElementById("chart").innerHTML = svg;
+  document.getElementById("leg").innerHTML = series.map(s=>`<span><i style="background:${s[1]}"></i>${s[0]}</span>`).join("");
+}
+
+// Appel JSON-RPC Zabbix (utilisable seulement si la page tourne sur votre poste/serveur)
+async function zbx(method, params){
+  const r = await fetch(ZABBIX.url, {method:"POST",
+    headers:{"Content-Type":"application/json-rpc","Authorization":"Bearer "+ZABBIX.token},
+    body:JSON.stringify({jsonrpc:"2.0",method,params,id:1})});
+  const j = await r.json(); if(j.error) throw new Error(j.error.data); return j.result;
+}
+async function loadLive(){
+  const hs = await zbx("host.get",{output:["host","status"],selectInterfaces:["available"]});
+  const pr = await zbx("problem.get",{output:["name","severity","clock"],recent:true,sortfield:"eventid",sortorder:"DESC"});
+  const d = {
+    hosts: hs.map(h=>[h.host, h.interfaces[0]&&h.interfaces[0].available==="2"?"dis":"ok","—"]),
+    disks: demo.disks,
+    problems: pr.map(p=>[+p.severity,"—",p.name,new Date(p.clock*1000).toLocaleString("fr-FR")])
+  };
+  render(d); maj.textContent = "Données en direct · " + new Date().toLocaleTimeString("fr-FR");
+}
+
+chart();
+render(demo);
+if(ZABBIX.url && ZABBIX.token){ loadLive().catch(e=>{maj.textContent="Erreur API Zabbix : "+e.message}); setInterval(()=>loadLive().catch(()=>{}),30000); }
+
+theme.onclick = ()=>{
+  const el = document.documentElement;
+  const dark = el.dataset.theme ? el.dataset.theme==="dark" : matchMedia("(prefers-color-scheme:dark)").matches;
+  el.dataset.theme = dark ? "light" : "dark";
+};
+</script>
+</body>
+</html>
